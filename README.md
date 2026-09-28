@@ -1,9 +1,23 @@
-# Datathon 7MLET — Grupo XX
+# Datathon 8MLET — Grupo 22
 
 Plataforma de experimentação adaptativa para escolha de canal de contato em campanhas bancárias, usando Thompson Sampling.
 
-**Integrantes:** [PREENCHER]
+**Integrantes:** 
 
+Adriano Cabrera
+
+- LinkedIn: https://www.linkedin.com/in/adriano-cabrera-b7b680a7/
+- GitHub: https://github.com/cabrpin
+
+Caio Grazzini
+
+- LinkedIn: https://www.linkedin.com/in/caiograzzini/
+- GitHub: https://github.com/Grazzica/
+
+Fabrício Batista Dias
+
+- LinkedIn: https://www.linkedin.com/in/fabriciobdias/
+- GitHub: https://github.com/DiasFabricio
 ---
 
 ## 1. Problema de negócio
@@ -63,7 +77,19 @@ Os experimentos estão registrados no MLflow.
 
 ## 5. Golden set
 
-[PREENCHER — tabela com os 5 clientes e a recomendação]
+Cinco clientes sorteados da base, com a recomendação da política treinada sobre o histórico completo.
+
+| # | Idade | Profissão | Estado civil | Saldo | Canal recomendado | Canal no histórico | Converteu |
+|---|---|---|---|---|---|---|---|
+| 0 | 35 | student | single | 0 | cellular | telephone | não |
+| 1 | 50 | technician | married | 232 | cellular | cellular | não |
+| 2 | 47 | management | married | 1.675 | cellular | cellular | não |
+| 3 | 34 | services | married | 2.956 | cellular | cellular | sim |
+| 4 | 31 | entrepreneur | married | 162 | cellular | cellular | não |
+
+**Estado aprendido:** celular α=4.370, β=24.917 (taxa estimada 14,92%); telefone α=391, β=2.517 (taxa estimada 13,45%). As estimativas convergiram para as taxas reais sem que estas tenham sido informadas.
+
+Os cinco casos recomendam celular, resultado coerente com a política: como a incerteza sobre os braços já é baixa, a probabilidade de o sorteio favorecer o telefone é pequena. Por se tratar de um bandit não contextual, a recomendação não varia conforme o perfil do cliente — a variação entre chamadas decorre do sorteio das distribuições Beta. No caso 0, a recomendação diverge do canal efetivamente utilizado no histórico, que não resultou em conversão.
 
 ## 6. Limitações
 
@@ -71,10 +97,9 @@ Os experimentos estão registrados no MLflow.
 - **Diferença pequena entre braços:** 1,5 pp entre celular e telefone limita o ganho máximo possível.
 - **Sem coluna de ano:** meses de anos diferentes aparecem agregados, impedindo separar sazonalidade de evolução do processo.
 - **Modelo não contextual:** a recomendação não varia por perfil de cliente.
+- **Serviço em notebook:** o estado da política é mantido em memória e se perde ao reiniciar o kernel. Em produção seria persistido em banco.
 
 ## 7. Arquitetura-alvo em nuvem (AWS)
-
-[RASCUNHO — revisar]
 
 ```mermaid
 flowchart LR
@@ -91,7 +116,7 @@ flowchart LR
     subgraph SERVICO["Serviço de decisão"]
         APIGW["API Gateway"]
         API["FastAPI<br/>ECS Fargate ou Lambda"]
-        DDB[("DynamoDB<br/>estado α e β por braço")]
+        DDB[("DynamoDB<br/>estado alfa e beta por braço")]
         APIGW --> API
         API <-->|"lê e atualiza"| DDB
     end
@@ -109,9 +134,9 @@ flowchart LR
     API -.->|"parâmetros e métricas"| MLF
 ```
 
-Os dados brutos e tratados ficariam no Amazon S3, organizados nas camadas raw e trusted, com o Glue Data Catalog registrando os schemas e o Athena permitindo consulta SQL. O estado da política (os parâmetros α e β de cada braço) seria mantido no DynamoDB, por exigir leitura e escrita de baixa latência a cada decisão.
+Os dados brutos e tratados ficariam no Amazon S3, organizados nas camadas raw e trusted, com o Glue Data Catalog registrando os schemas e o Athena permitindo consulta SQL sobre os arquivos Parquet. O tratamento descrito na seção 2 seria executado por um job do Glue, disparado a cada nova carga.
 
-O serviço de recomendação seria uma API em FastAPI empacotada em contêiner no ECS Fargate (ou Lambda, dado o baixo custo computacional do Thompson Sampling), exposta pelo API Gateway. Cada conversão observada atualizaria o estado no DynamoDB. O CloudWatch monitoraria latência, volume de decisões e a proporção de escolha de cada braço, e o MLflow seria hospedado no SageMaker para o registro de experimentos.
+O serviço de recomendação seria uma API em FastAPI, empacotada em contêiner no ECS Fargate ou publicada como função Lambda, dado o baixo custo computacional do Thompson Sampling, e exposta pelo API Gateway. O estado da política — os parâmetros alfa e beta de cada braço — seria mantido no DynamoDB, por exigir leitura e escrita de baixa latência a cada decisão. Cada conversão observada nos canais digitais retornaria à API e atualizaria esse estado, fechando o ciclo de aprendizado. O CloudWatch monitoraria latência, volume de decisões e a proporção de escolha de cada braço, indicador que sinaliza mudanças de comportamento dos canais, e o MLflow hospedado no SageMaker manteria o registro de experimentos.
 
 ## 8. Estrutura do repositório
 
@@ -120,9 +145,9 @@ O serviço de recomendação seria uma API em FastAPI empacotada em contêiner n
 │   ├── raw/            # bank-full.csv (baixar do Kaggle, não versionado)
 │   └── trusted/        # bank_clean.parquet
 ├── notebooks/
-│   ├── 01_eda.ipynb                # análise exploratória e tratamento
-│   └── 02_baseline_bandit.ipynb    # baseline, Thompson Sampling, golden set, MLflow
-├── src/                # [PREENCHER — serviço de recomendação]
+│   ├── 01_eda.ipynb                    # análise exploratória e tratamento
+│   ├── 02_baseline_bandit.ipynb        # baseline, Thompson Sampling, golden set, MLflow
+│   └── 03_servico_recomendacao.ipynb   # serviço de recomendação
 ├── requirements.txt
 └── README.md
 ```
@@ -140,15 +165,18 @@ pip install -r requirements.txt
 # 2. Baixar bank-full.csv do Kaggle e salvar em data/raw/
 
 # 3. Executar os notebooks em ordem
-#    notebooks/01_eda.ipynb
-#    notebooks/02_baseline_bandit.ipynb
+#    notebooks/01_eda.ipynb                — gera data/trusted/bank_clean.parquet
+#    notebooks/02_baseline_bandit.ipynb    — simulação, comparação e registro no MLflow
 
 # 4. Visualizar experimentos (na raiz do projeto)
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 #    Abrir http://localhost:5000 e selecionar a aba "Model training"
 
 # 5. Serviço de recomendação
-#    [PREENCHER]
+#    Executar notebooks/03_servico_recomendacao.ipynb
+#    A função recomendar(cliente) recebe os dados de um cliente e devolve o
+#    canal recomendado; registrar_feedback(canal, converteu) atualiza a política
+#    com o resultado observado.
 ```
 
 ## 10. Vídeo
