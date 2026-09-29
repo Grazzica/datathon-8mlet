@@ -97,7 +97,6 @@ Os cinco casos recomendam celular, resultado coerente com a política: como a in
 - **Diferença pequena entre braços:** 1,5 pp entre celular e telefone limita o ganho máximo possível.
 - **Sem coluna de ano:** meses de anos diferentes aparecem agregados, impedindo separar sazonalidade de evolução do processo.
 - **Modelo não contextual:** a recomendação não varia por perfil de cliente.
-- **Serviço em notebook:** o estado da política é mantido em memória e se perde ao reiniciar o kernel. Em produção seria persistido em banco.
 
 ## 7. Arquitetura-alvo em nuvem (AWS)
 
@@ -181,4 +180,4 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db
 
 ## 10. Vídeo
 
-[PREENCHER — link]
+https://youtu.be/uaGayhmek9c
